@@ -16,10 +16,39 @@ import argparse
 import os
 import sys
 from pathlib import Path
+import json
 
 import cv2
+from joblib import wrap_non_picklable_objects
+from matplotlib.font_manager import json_dump
 import torch
 import torch.backends.cudnn as cudnn
+
+my_json_string = """{
+   "predictions": [
+      {
+        "conf" : 0.0,
+        "xmax" : 0 ,
+        "xmin" : 0 ,
+        "ymax" : 0 ,
+        "ymin" : 0 ,
+        "label" : "abc"
+      }
+   ]
+}
+"""
+
+my_sample_string = """{
+        "conf" : 0.0,
+        "xmax" : 0 ,
+        "xmin" : 0 ,
+        "ymax" : 0 ,
+        "ymin" : 0 ,
+        "label" : "abc"
+}
+"""
+
+ARRAY_JSON = json.loads(my_json_string)
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -124,6 +153,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
         # Process predictions
         for i, det in enumerate(pred):  # per image
+            ARRAY_JSON = json.loads(my_json_string)
             seen += 1
             if webcam:  # batch_size >= 1
                 p, im0, frame = path[i], im0s[i].copy(), dataset.count
@@ -133,7 +163,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # im.jpg
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
+            #txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
+            txt_path = str(save_dir / 'labels' / p.stem)  # im.txt
+            print(repr(txt_path))
             s += '%gx%g ' % im.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if save_crop else im0  # for save_crop
@@ -149,11 +181,37 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
+                    save_txt=True
+                    save_conf=True
+
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+
                         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+
+                        w,h,_ = im0.shape
+
+                        xcent = line[1]
+                        ycent = line[2]
+                        wnorm = line[3]
+                        hnorm = line[4]
+
+                        xmin = xcent*w - (w*wnorm)/2
+                        xmax = xcent*w + (w*wnorm)/2
+
+                        ymin = ycent*h - (h*hnorm)/2
+                        ymax = ycent*h + (h*hnorm)/2
+
+
+                        ARRAY_JSON["predictions"][0]["conf"]  = line[-1].item()
+                        ARRAY_JSON["predictions"][0]["xmax"]  = xmax
+                        ARRAY_JSON["predictions"][0]["xmin"]  = xmin
+                        ARRAY_JSON["predictions"][0]["ymax"]  = ymax
+                        ARRAY_JSON["predictions"][0]["ymin"]  = ymin
+                        ARRAY_JSON["predictions"][0]["label"] = str(line[0].item())
+
+                        ARRAY_JSON["predictions"].insert(0,json.loads(my_sample_string))
+                        # YOLO_COMP.append(YOLO_JSON)
 
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
@@ -161,6 +219,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+            
 
             # Print time (inference-only)
             LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
@@ -189,7 +248,13 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                             save_path += '.mp4'
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer[i].write(im0)
-
+	   
+        if save_txt:
+            ARRAY_JSON["predictions"].pop(0)
+            data_out = json.dumps(ARRAY_JSON)
+            with open(txt_path + '.json', 'w') as f:
+                f.write(data_out)
+                    #f.write(('%g ' * len(line)).rstrip() % line + '\n')
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
     LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
