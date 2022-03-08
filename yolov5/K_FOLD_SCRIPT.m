@@ -47,18 +47,18 @@ for i = 1:k
         if train(j,i)==1
             
             if h < floor(n_train*perc)
-                copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_train_image,fileList_image(j).name))
-                copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_train_label,fileList_label(j).name))
+                copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_train_image,fileList_image(j).name),'f')
+                copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_train_label,fileList_label(j).name),'f')
 
             else
-                copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_val_image,fileList_image(j).name))
-                copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_val_label,fileList_label(j).name))
+                copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_val_image,fileList_image(j).name),'f')
+                copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_val_label,fileList_label(j).name),'f')
             
             end
             h = h + 1; 
         else
-            copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_test_image,fileList_image(j).name))
-            copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_test_label,fileList_label(j).name))
+            copyfile(fullfile(fileList_image(j).folder,fileList_image(j).name),fullfile(folder_test_image,fileList_image(j).name),'f')
+            copyfile(fullfile(fileList_label(j).folder,fileList_label(j).name),fullfile(folder_test_label,fileList_label(j).name),'f')
         end
     end
 end
@@ -71,9 +71,13 @@ yolo_folder=uigetdir()
 
 for i = 1:k
     fid = fopen(fullfile(yolo_folder,strcat('data',num2str(i),'.yaml')), 'w');
-    formatSpec = "train:\n ./%s/train%d/images\nval:\n ./%s/val%d/images\n\nnc: 1\nnames: ['0']"
-    fprintf(fid, formatSpec, data_folder,i,data_folder,i);
+    fid_2 = fopen(fullfile(yolo_folder,strcat('test',num2str(i),'.yaml')), 'w');
+    formatSpec_1 = "train:\n ./%s/train%d/images\nval:\n ./%s/val%d/images\n\nnc: 1\nnames: ['0']"
+    formatSpec_2 = "val:\n ./%s/test%d/images\n\nnc: 1\nnames: ['0']"
+    fprintf(fid, formatSpec_1, data_folder,i,data_folder,i);
+    fprintf(fid_2, formatSpec_2, data_folder,i);
     fclose(fid);
+    fclose(fid_2);
 end
 
 
